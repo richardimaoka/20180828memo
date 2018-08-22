@@ -1,19 +1,42 @@
-# TODO as of 20180822
-
-- sbt project = common //not yet started
-- sbt project = check-digit //not yet started
-- sbt project = hmda-platform (/hmda directory) //almost done interms of analysis, but text to be brushed up
-- sbt project = institutional-api //not yet started
-- Kubernetes stuff if there is enough time for this... not sure as I'm not an expert on this
-
-# https://github.com/cfpb/hmda-platform
-
 Uses Akka typed, Cluster, HTTP, Persistence and Kubernetes
+
+## TODO as of 20180822
+
+- sbt project = common //not sure if we should do analysis in this directory
+- sbt project = check-digit //almost done in terms of analysis, but text to be brushed up
+- sbt project = hmda-platform (/hmda directory) //almost done in terms of analysis, but text to be brushed up
+- sbt project = institutional-api //almost done in terms of analysis, but text to be brushed up
+- Kubernetes stuff if there is enough time for this... not sure as I'm not an expert on this although it is an area of interest for me
 
 ## sbt project = common
 
 ## sbt project = check-digit
 
+According to the [doc](https://github.com/cfpb/hmda-platform/tree/master/docs/v2#check-digit), it does:
+
+> Microservice that exposes functionality to create a check digit from a loan id, and to validate `Univeral Loan Identifiers`
+
+The [uli API](https://github.com/cfpb/hmda-platform/blob/master/docs/v2/api/uli.md) page already gives the API.
+The route is defined in `ULIHttpApi` [(source code)](https://github.com/cfpb/hmda-platform/blob/master/check-digit/src/main/scala/hmda/uli/api/http/ULIHttpApi.scala)
+
+This is not complicated internally, as it currently defines the validation logic in `validation.ULI` but no database or external service are used.
+
+`HdmaUli` is the entry point of this project, which starts up an instance of `HmdaUliApi` actor, and the the actor spins up an HTTP server
+as specified in [uli API](https://github.com/cfpb/hmda-platform/blob/master/docs/v2/api/uli.md).
+
+- `POST: uli/checkDigit`: Calculates check digit and full ULI from a loan id.
+   -  the validation & check-digit generation logic is defined in `ULI.checkDigit`
+   - **memo (richard):** but is this complete? It only checks String length of the loan ID, if it is alpha-numeric, then generate the check digit
+- `POST: uli/checkDigit`: You can also upload a file as multipart request
+   - processes the file as Akka Stream `Source` using `formData.parts` within the `fileUpload` directive
+   - use the same logic - `ULI.checkDigit`
+- `POST: uli/checkDigit/csv`: Upload CSV`: similar to uploading a file
+- `POST: uli/validate`: Upload CSV`: post a single-field JSON `{ "uli", "...." }`, 
+   - the validation logic is in `ULI.validateULI`
+- `POST: uli/validate`: Upload CSV`: You can also upload a file as multipart request
+- `POST: uli/validate/csv`: Upload CSV`: similar to uploading a file
+  
+  
 ## sbt project = hmda-platform (/hmda directory)
 
 Main = `object HmdaPlatform`
@@ -156,5 +179,19 @@ because wrapping into `ToResponseMarshallable` is automatically done inside the 
 
 ## sbt project = institutional-api
 
+The [institution API](https://github.com/cfpb/hmda-platform/blob/master/docs/v2/api/public-api.md#institutions) page already gives the API.
+The route is defined in `InstitutionQueryHttpApi` [(source code)](https://github.com/cfpb/hmda-platform/blob/master/check-digit/src/main/scala/hmda/uli/api/http/ULIHttpApi.scala)
+
+This is not complicated internally, as it currently defines the validation logic in `validation.ULI` but no database or external service are used.
+
+`HmdaInstitutionApi` is the entry point of this project, which starts up an instance of:
+  - `InstitutionDBProjection`actor, which is backed up by the following repositories which have DB (Relational DB, as it uses Slick)
+    - `InstitutionEmailsRepository`
+    - `InstitutionRepository`
+    - **memo (richard):**  where is DB connection configured? I don't find it in `hmda-platform/institutions-api/src/main/resources`
+ - `HmdaInstitutionQueryApi` actor, and this actor spins up an HTTP server
+    - it accesses the repositoris, `InstitutionEmailsRepository` and  `InstitutionRepository` to `findById` and `findByLei` for institions and institution emails
 
 ## Kubernetes stuff
+
+
